@@ -1,0 +1,130 @@
+<!doctype html>
+<html style="display:none">
+<head>
+<meta http-equiv="x-ua-compatible" content="IE=Edge"/> 
+<meta charset="utf-8"/>
+<title>CrowdQuiz</title>
+<link rel="stylesheet" type="text/css" href="styles.css"/>
+<link rel="stylesheet alternate" type="text/css" href="styles-dark.css"/>
+</head>
+<body>
+
+<div id="centercol">
+	<div id="questiontext" data-i18n="selectquiz"></div>
+
+	<ul id="optionlist"></ul>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/jquery.js"></script>
+<script src="/i18next.js"></script>
+<script src="/shared.js"></script>
+<script>
+var socket = io();
+var quizinstance = null;
+var discover = 1;
+var qr = new QuizRenderer("#centercol");
+var stylemanager = new StyleManager();
+
+i18n.init({ fallbackLng: 'en' }, function(t) {
+	// apply i18n and show page
+	$("html").i18n().css("display", "initial");
+	discoverQuizzes();
+});
+
+
+socket.emit("JoinRoom", ["clients"]);
+
+function requestQuestion() {
+	var request = {
+		"quizinstance" : quizinstance
+	};
+
+	socket.emit("RequestQuestion", request);
+}
+
+
+function discoverQuizzes() {
+	var reloadfunc = function() {
+			if(quizinstance == null) {
+				location.reload();
+			}
+	};
+	var code = prompt(i18n.t("entercode"));
+	window.setTimeout(reloadfunc, 3000);
+
+	if(code != null) {
+		var request = {
+			"code" : code
+		};
+		console.log(request);
+		socket.emit("DiscoveryRequest", request);
+	}
+}
+
+// display discovered quizzes
+socket.on("DiscoveryResponse", function(response) {
+	if(!discover) {
+		return;		// ignore discovery messages when not discovering
+	}
+	discover = 0;
+	quizinstance = response.quizinstance;
+	socket.emit("JoinRoom", ["clients." + quizinstance]);
+	$("#questiontext").text(i18n.t("waitforquestion"));
+	requestQuestion();
+
+/*
+	var li = $("<li>");
+	li.text(response.quizname);
+	li.toggleClass("quiz", true);
+	li.click(function() {
+		discover = 0;
+		quizinstance = response.quizinstance;
+		socket.emit("JoinRoom", ["clients." + response.quizinstance]);
+		$("#questiontext").text(i18n.t("waitforquestion"));
+		$("#optionlist").empty();
+		requestQuestion();
+	});
+
+	$("#optionlist").append(li);
+*/
+
+});
+
+// display incoming quiz question
+socket.on('QuizQuestion', function(question) {
+	qr.renderQuestion(question, function (click) {
+		if(!QuizUtil.clickIsRelevant(click, question)) {
+			console.log("irrelevant click type: " + click.type);
+			return;
+		}
+
+		if("x" in click && "y" in click) {
+			qr.redrawImage();
+			qr.markImagePosition(click.x, click.y);
+		}
+
+		var answer = {
+			"from" : QuizUtil.permaId(),
+			"quizinstance" : quizinstance,
+			"click" : click
+		};
+
+		socket.emit("QuizAnswer", answer);
+	});
+});
+
+// show correct answer to question
+socket.on("RevealCorrect", function() {
+	qr.reveal();
+});
+
+socket.on('ping', function(data){
+	socket.emit('pong', data);
+});    
+
+
+</script>
+
+</body>
+</html>

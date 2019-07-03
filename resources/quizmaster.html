@@ -1,0 +1,191 @@
+<!doctype html>
+<html style="display:none">
+<head>
+<meta http-equiv="x-ua-compatible" content="IE=Edge"/> 
+<meta charset="utf-8"/>
+<title>CrowdQuiz - Quizmaster</title>
+<link rel="stylesheet" type="text/css" href="styles.css"/>
+<link rel="stylesheet" type="text/css" href="quizmaster.css"/>
+</head>
+<body>
+
+<div id="centercol">
+	<div id="questiontext" data-i18n="noquizloaded"></div>
+</div>
+
+<div id="controls">
+	<input type="file" id="files" name="files[]" />
+	<button id="prev" data-i18n="prevquestion"></button>
+	<button id="next" data-i18n="nextquestion"></button>
+	<button id="reveal" data-i18n="revealanswer"></button>
+	<span id="progress"></span>
+	<span id="quizcode"></span>
+	<span id="answercount"></span>
+</div>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/jquery.js"></script>
+<script src="/i18next.js"></script>
+<script src="/shared.js"></script>
+<script>
+var socket = io();
+var answers = {};
+var quizinstance = "quiz1";
+var quizcode = null;
+var qr = new QuizRenderer("#centercol");
+var qh = new QuizHolder([]);
+
+i18n.init({ fallbackLng: 'en' }, function(t) {
+	// apply i18n and show page
+	$("html").i18n().css("display", "initial");
+	updateUI();
+	openQuiz();
+});
+
+
+
+function openQuiz() {
+	quizinstance = "quiz-" + QuizUtil.randomString();
+
+	socket.emit("JoinRoom", ["quizmaster." + quizinstance, "quizmaster"]);
+	socket.emit("RequestQuizCode", {"quizinstance" : quizinstance});
+}
+
+
+function handleFileSelect(evt) {
+	var files = evt.target.files; // FileList object
+	var f = files[0];
+	var reader = new FileReader();
+
+	// Closure to capture the file information.
+	reader.onload = (function (theFile) {
+        	return function (e) { 
+				qh = new QuizHolder(JSON.parse(e.target.result));
+				sendQuestion();
+        	};
+	})(f);
+
+	// Read in JSON as a data URL.
+	reader.readAsText(f, 'UTF-8');
+}
+document.getElementById('files').addEventListener('change', handleFileSelect, false);
+
+
+function updateUI() {
+	$("#quizcode").text(quizcode != null ? i18n.t("quizcode") + ": " + quizcode : "");
+	$("#progress").text(qh.size() > 0 ? "(" + (qh.position() + 1) + "/" + qh.size() + ")" : "");
+	$("#prev").attr("disabled", !qh.hasPrev());
+	$("#next").attr("disabled", !qh.hasNext());
+	$("#reveal").attr("disabled", qh.size() < 1 || qr.isRevealed());
+}
+
+
+function sendQuestion() {
+	var question = qh.current();
+
+	// reset question-related state
+	answers = {};
+	$("#answercount").text("");
+
+	// send question to clients
+	var questionEnvelope = {
+		"question" : question,
+		"quizinstance" : quizinstance
+	};
+	socket.emit("QuizQuestion", questionEnvelope);
+
+	qr.renderQuestion(question);
+	updateUI();
+}
+
+
+$("#prev").click(function() {
+	qh.prev();
+	sendQuestion();
+});
+     
+$("#next").click(function() {
+	qh.next();
+	sendQuestion();
+});
+
+$("#reveal").click(function() {
+	if(qr.isRevealed()) {
+		return;
+	}
+
+	var revealMsg = {
+		"quizinstance" : quizinstance
+	};
+
+	socket.emit("RevealCorrect", revealMsg);
+	qr.reveal(answers);
+	updateUI();
+});
+
+
+// received an answer from a client
+socket.on("QuizAnswer", function(answer) {
+	// don't count if we already revealed the solution or answer type doesn't fit
+	if(qr.isRevealed() || !QuizUtil.clickIsRelevant(answer.click, qh.current())) {
+		return;
+	}
+
+	answers[answer.from] = answer.click;
+
+	var count = Object.keys(answers).length;
+	//var percentage = Math.min(Math.floor((count / answer.totalClients) * 100), 100);
+	//$("#answercount").text( count + " | " + percentage + "%");
+	$("#answercount").text( count + " " + i18n.t(count > 1 ? "answers" : "answer"));
+});
+
+// serve question request for clients that connected late
+socket.on("RequestQuestion", function(request) {
+
+	if(qr.isRevealed()) {
+		return;		// don't send revealed questions
+	}
+
+	var question = qh.current();
+	if(!question) {
+		return;		// we may not yet have loaded a quiz
+	}
+
+	var questionEnvelope = {
+		"question" : question,
+		"quizinstance" : quizinstance,
+		"recipient" : request.clientid
+	};
+
+	socket.emit("QuizQuestion", questionEnvelope);
+});
+
+socket.on("RequestQuizCodeResponse", function(response) {
+	quizcode = response.quizcode;
+	updateUI();
+});
+
+socket.on("DiscoveryRequest", function(request) {
+	var code = request.code;
+	if(!code || code.trim() != quizcode) {
+		return;
+	}
+
+	var response = {
+		"quizinstance" : quizinstance,
+		"recipient" : request.clientid
+	};
+
+	socket.emit("DiscoveryResponse", response);
+});
+
+socket.on('ping', function(data){
+	socket.emit('pong', data);
+});
+
+
+</script>
+
+</body>
+</html>
