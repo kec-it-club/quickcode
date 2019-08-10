@@ -3,7 +3,7 @@
 Quick Code is basically IT Quiz developed on top of Node.js and Socket to allow the exectuive members of KEC IT Club to act as Quiz Master conducting the quiz and hanling the JSON files to be loaded for a particular quiz id and participant are allowed to enter the quiz using the same id.
 
 <p align="center">
-    <a href="https://tomodachi977.herokuapp.com" target="_blank"><img src="https://i.imgur.com/d2Zktkc.png" height="330"/></a>
+    <a href="https://github.com/kec-it-club/quickcode" target="_blank"><img src="https://i.imgur.com/d2Zktkc.png" height="330"/></a>
 </p>
 
 ## Installation
@@ -13,8 +13,8 @@ Quick Code is basically IT Quiz developed on top of Node.js and Socket to allow 
 **Clone the source locally:**
 
 ```
-$ git clone https://github.com/aryaminus/tomodachi
-$ cd tomodachi
+$ git clone https://github.com/kec-it-club/quickcode
+$ cd quickcode
 ```
 
 **Install required node dependencies:**
@@ -60,7 +60,7 @@ Participants will use the **participant view** to join a quiz currently running 
 
 ## Contributing
 
-1. Fork it (<https://github.com/aryaminus/tomodachi/fork>)
+1. Fork it (<https://github.com/kec-it-club/quickcode/fork>)
 2. Create your feature branch (`git checkout -b feature/fooBar`)
 3. Commit your changes (`git commit -am 'Add some fooBar'`)
 4. Push to the branch (`git push origin feature/fooBar`)
