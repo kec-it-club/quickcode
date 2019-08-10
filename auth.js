@@ -22,7 +22,7 @@ module.exports = {
       !admins[user.name] ||
       admins[user.name].password !== user.pass
     ) {
-      res.set("WWW-Authenticate", 'Basic realm="CrowdQuiz"');
+      res.set("WWW-Authenticate", 'Basic realm="QuickCode"');
       return res.status(401).send();
     }
     return next();

@@ -1,394 +1,436 @@
-<!doctype html>
+<!DOCTYPE html>
 <html style="display:none">
-<head>
-<meta http-equiv="x-ua-compatible" content="IE=Edge"/> 
-<meta charset="utf-8"/>
-<title>CrowdQuiz - Editor</title>
-
-<style>
-
-body {
-	font-family: Arial,sans-serif;
-}
-
-select#questions {
-	width: 100%;
-}
-
-div.controls {
-	background-color: rgb(220,220,220);
-	padding:5px;
-
-}
-
-div.listcontainer {
-	border: 2px solid rgb(220,220,220);
-}
-
-div.editor {
-	border: 2px solid rgb(220,220,220);
-	background-color: rgb(240,240,240);
-	padding: 10px;
-}
-
-
-div.editor select {
-	margin-top:3px;
-	margin-bottom:5px;
-}
-
-div.editor input {
-	width: 90%;
-	margin-bottom: 3px;
-}
-
-div.editor textarea {
-	width: 90%;
-	margin-bottom: 6px;
-}
-
-div.editor div#draghere {
-	border: 2px solid rgb(200,200,200);
-	background-color: white;
-	padding:10px;
-	margin-top:6px;
-	margin-bottom:6px;
-	display:inline-block;
-	border-radius:10px;
-}
-
-
-input.neutral {
-	background-color: rgb(250,250,250);
-}
-
-input.correct {
-	background-color: rgb(200,255,200);
-}
-
-input.incorrect {
-	background-color: rgb(255,200,200);
-}
-
-</style>
-
-</head>
-<body>
-
-<div class="controls">
-	<button id="newquestion" onClick="newQuiz();" data-i18n="newquiz"></button>
-	<input type="file" id="files" name="files[]" onChange="loadFile();"/>
-	<a href="" id="savelink" download="quiz.json" onClick="saveToFile();"><button type="button" data-i18n="savetofile"></button></a>
-</div>
-
-<div class="listcontainer">
-	<select id="questions" size="10" onChange="onQuestionSelect();"></select>
-</div>
-
-<div class="controls">
-	<button id="newquestion" onClick="newQuestion();" data-i18n="newquestion"></button>
-	<button id="removequestion" onClick="removeQuestion();" data-i18n="deletequestion"></button>
-	<button id="questionup" onClick="upQuestion();" data-i18n="questionup"></button>
-	<button id="questiondown" onClick="downQuestion();" data-i18n="questiondown"></button>
-</div>
-
-<div id="editorcontainer">
-	<div class="editor">
-		<select id="typeselect" onChange="readQuestionEditor();">
-			<option value="0" data-i18n="type0"></option>
-			<option value="1" data-i18n="type1"></option>
-			<option value="2" data-i18n="type2"></option>
-		</select>
-		<textarea id="text" cols="80" onChange="readQuestionEditor();"></textarea><br/>
-		<div id="optioncontainer"></div>
-
-		<div id="draghere">
-			<p id="dragheretext" data-i18n="dragimagehere"></p>
-			
-			<div id="imageeditor">
-				<img id="questionimage"/><br/>
-				<button id="deleteimage" onClick="deleteImage();" data-i18n="removeimage" style="margin-bottom:3px"></button>
-			</div>
-		</div>
-	</div>
-</div>
-
-
-<script src="/jquery.js"></script>
-<script src="/i18next.js"></script>
-<script src="/hermite.js"></script>
-<script>
-
-var questions = [];
-var question = null;
-
-i18n.init({ fallbackLng: 'en' }, function(t) {
-	// apply i18n and show page
-	$("html").i18n().css("display", "initial");
-	updateUI();
-});
-
-
-function listQuestions() {
-	var html = "";
-	document.getElementById("questions").innerHTML = html;
-
-	for(var i = 0; i < questions.length; ++i) {
-		html += "<option value='" + i + "'>";
-		html += questions[i].text;
-		html += "</option>";
-	}
-	
-	document.getElementById("questions").innerHTML = html;
-}
-
-
-function createOptions() {
-	let questionHasOptions = function() {
-		if(question == null) return false;
-		return question.type != 1;
-	}
-
-	let createOptionField = function(i, text) {
-		let field = $("<input type='text' id='option" + i + "'/>");
-		field.on("change", readQuestionEditor);
-		let clazz = "neutral";
-		if(!question.type || question.type == 0) clazz = i == 0 ? "correct" : "incorrect";
-		field.toggleClass(clazz, true);
-		field.val(text);
-		return field;
-	}
-
-	let container = $("#optioncontainer");
-	container.empty();
-
-	if(questionHasOptions()) {
-		let numOptions = 0;
-		if(question.options) numOptions = question.options.length;
-		for(let i = 0; i < numOptions; ++i) {
-			let text = question.options[i];
-			let input = createOptionField(i, text);
-			container.append(input);
-		}
-		container.append(createOptionField(numOptions), "");
-	}
-}
-
-
-function updateUI() {
-	// update editor UI
-	$("#editorcontainer").css("display", question != null ? "initial" : "none");
-	if(question != null) {
-		$("#typeselect").val(question.type ? question.type : 0);
-
-		$("#text").val(question.text);
-		for(var i = 0; $("#option" + i)[0]; ++i) {
-			$("#option" + i).val((question.options && question.options[i]) ? question.options[i] : "");
-		}
-
-		createOptions();
-
-		// set up image editing UI
-		$("#questionimage").attr("src", question.image ? question.image : "");
-		$("#imageeditor").css("display", question.image ? "initial" : "none");
-		$("#dragheretext").css("display", question.image ? "none" : "initial");
-	}
-}
-
-function readQuestionEditor() {
-	question.type = $("#typeselect").val();
-	question.text = $("#text").val();
-
-	if(!question.type || question.type == 0 || question.type == 2) {
-		question.options = [];
-		for(var i = 0; $("#option" + i)[0]; ++i) {
-			var value = $("#option" + i).val();
-			if(value.trim().length > 0) {
-				question.options.push(value);
-			}
-		}
-	} else if(question.type == 1) {
-		delete question.options;
-	}
-
-	listQuestions();
-	updateUI();
-}
-
-
-function onQuestionSelect() {
-	var selected = document.getElementById("questions").value;
-	question = questions[selected];
-	updateUI();
-}
-
-function newQuiz() {
-	questions = [];
-	question = null;
-	listQuestions();
-	updateUI();
-}
-
-
-function newQuestion() {
-	question = {
-		"text" : i18n.t("textofquestion"),
-		"options" : [ i18n.t("correctanswer"), i18n.t("wronganswer") + " 1", i18n.t("wronganswer") + " 2", i18n.t("wronganswer") + " 3" ],
-		"type" : 0
-	}
-
-	questions[questions.length] = question;
-	listQuestions();
-	updateUI();
-	document.getElementById("questions").value = questions.length - 1;
-}
-
-
-function removeQuestion() {
-	var selected = parseInt(document.getElementById("questions").value);
-	questions.splice(selected, 1);
-	listQuestions();
-	updateUI();
-}
-
-function upQuestion() {
-	var selected = parseInt(document.getElementById("questions").value);
-	if(selected < 1) {
-		return;
-	}
-
-	question = questions[selected];
-	questions[selected] = questions[selected - 1];
-	questions[selected - 1] = question;
-
-	listQuestions();
-	updateUI();
-	document.getElementById("questions").value = selected - 1;
-}
-
-function downQuestion() {
-	var selected = parseInt(document.getElementById("questions").value);
-	if(selected >= questions.length - 1) {
-		return;
-	}
-
-
-	question = questions[selected];
-	questions[selected] = questions[selected + 1];
-	questions[selected + 1] = question;
-
-	listQuestions();
-	updateUI();
-	document.getElementById("questions").value = selected + 1;
-}
-
-function deleteImage() {
-	delete question.image;
-	updateUI();
-}
-
-
-function loadFile() {
-	var files = document.getElementById("files").files;
-	if(files.length < 1) {
-		return;
-	}
-
-	var reader = new FileReader();
-	// Closure to capture the file information.
-	reader.onload = (function (theFile) {
-		return function (e) {
-			var loadedQuestions = JSON.parse(e.target.result);
-			var append = false;
-			// if current quiz contains questions, ask if to append quiz
-			if(questions.length > 0) {
-				append = confirm(i18n.t("appendquiz"));
-			}
-
-			if(append) {
-				for(var i = 0; i < loadedQuestions.length; ++i) {
-					questions.push(loadedQuestions[i]);
-				}
-			} else {
-				questions = loadedQuestions;
-			}
-
-			listQuestions();
-			console.log(questions);
-		};
-	})(files[0]);
-
-	reader.readAsText(files[0], "UTF-8");
-	updateUI();
-}
-
-
-function saveToFile() {
-	var string = JSON.stringify(questions);
-
-	var link = document.getElementById("savelink");
-	link.href = 'data:text/json;charset=utf-8,' + encodeURIComponent(string);
-
-	return true;
-}
-
-/*
- * Code for adding image data
- */
-
-var MAXWIDTH = 640;
-var MAXHEIGHT = 480;
-
-var target = document;
-target.addEventListener("dragover", function(e){e.preventDefault();}, true);
-target.addEventListener("drop", function(e){
-	e.preventDefault();
-	var file = e.dataTransfer.files[0];
-	if(!file.type.match(/image.*/)){
-		// not an image file!
-		return;
-	}
-
-	var reader = new FileReader();
-	reader.onload = function(e){
-		var image = new Image();
-		image.onload = function() {
-
-			var width2 = image.width;
-			var height2 = image.height;
-			if(width2 > MAXWIDTH) {
-				height2 *= MAXWIDTH / width2;
-				width2 = MAXWIDTH;
-			}
-
-			if(height2 > MAXHEIGHT) {
-				width2 *= MAXHEIGHT / height2;
-				height2 = MAXHEIGHT;
-			}
-
-			var canvas = document.createElement("canvas");
-			canvas.width = image.width;
-			canvas.height = image.height;
-			var ctx = canvas.getContext("2d");
-			ctx.fillStyle = "#ffffff";
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			ctx.drawImage(image, 0, 0, image.width, image.height);
-
-			resample_hermite(canvas, image.width, image.height, width2, height2);
-
-			if(question.text) {
-				question.image = canvas.toDataURL("image/jpeg", 0.7);
-				updateUI();
-			}
-
-		};
-		image.src = e.target.result;
-	};
-	reader.readAsDataURL(file);
-}, true);
-
-
-</script>
-
-</body>
+  <head>
+    <meta http-equiv="x-ua-compatible" content="IE=Edge" />
+    <meta charset="utf-8" />
+    <title>QuickCode - Editor</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+
+      select#questions {
+        width: 100%;
+      }
+
+      div.controls {
+        background-color: rgb(220, 220, 220);
+        padding: 5px;
+      }
+
+      div.listcontainer {
+        border: 2px solid rgb(220, 220, 220);
+      }
+
+      div.editor {
+        border: 2px solid rgb(220, 220, 220);
+        background-color: rgb(240, 240, 240);
+        padding: 10px;
+      }
+
+      div.editor select {
+        margin-top: 3px;
+        margin-bottom: 5px;
+      }
+
+      div.editor input {
+        width: 90%;
+        margin-bottom: 3px;
+      }
+
+      div.editor textarea {
+        width: 90%;
+        margin-bottom: 6px;
+      }
+
+      div.editor div#draghere {
+        border: 2px solid rgb(200, 200, 200);
+        background-color: white;
+        padding: 10px;
+        margin-top: 6px;
+        margin-bottom: 6px;
+        display: inline-block;
+        border-radius: 10px;
+      }
+
+      input.neutral {
+        background-color: rgb(250, 250, 250);
+      }
+
+      input.correct {
+        background-color: rgb(200, 255, 200);
+      }
+
+      input.incorrect {
+        background-color: rgb(255, 200, 200);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="controls">
+      <button
+        id="newquestion"
+        onClick="newQuiz();"
+        data-i18n="newquiz"
+      ></button>
+      <input type="file" id="files" name="files[]" onChange="loadFile();" />
+      <a href="" id="savelink" download="quiz.json" onClick="saveToFile();"
+        ><button type="button" data-i18n="savetofile"></button
+      ></a>
+    </div>
+
+    <div class="listcontainer">
+      <select id="questions" size="10" onChange="onQuestionSelect();"></select>
+    </div>
+
+    <div class="controls">
+      <button
+        id="newquestion"
+        onClick="newQuestion();"
+        data-i18n="newquestion"
+      ></button>
+      <button
+        id="removequestion"
+        onClick="removeQuestion();"
+        data-i18n="deletequestion"
+      ></button>
+      <button
+        id="questionup"
+        onClick="upQuestion();"
+        data-i18n="questionup"
+      ></button>
+      <button
+        id="questiondown"
+        onClick="downQuestion();"
+        data-i18n="questiondown"
+      ></button>
+    </div>
+
+    <div id="editorcontainer">
+      <div class="editor">
+        <select id="typeselect" onChange="readQuestionEditor();">
+          <option value="0" data-i18n="type0"></option>
+          <option value="1" data-i18n="type1"></option>
+          <option value="2" data-i18n="type2"></option>
+        </select>
+        <textarea
+          id="text"
+          cols="80"
+          onChange="readQuestionEditor();"
+        ></textarea
+        ><br />
+        <div id="optioncontainer"></div>
+
+        <div id="draghere">
+          <p id="dragheretext" data-i18n="dragimagehere"></p>
+
+          <div id="imageeditor">
+            <img id="questionimage" /><br />
+            <button
+              id="deleteimage"
+              onClick="deleteImage();"
+              data-i18n="removeimage"
+              style="margin-bottom:3px"
+            ></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/jquery.js"></script>
+    <script src="/i18next.js"></script>
+    <script src="/hermite.js"></script>
+    <script>
+      var questions = [];
+      var question = null;
+
+      i18n.init({ fallbackLng: "en" }, function(t) {
+        // apply i18n and show page
+        $("html")
+          .i18n()
+          .css("display", "initial");
+        updateUI();
+      });
+
+      function listQuestions() {
+        var html = "";
+        document.getElementById("questions").innerHTML = html;
+
+        for (var i = 0; i < questions.length; ++i) {
+          html += "<option value='" + i + "'>";
+          html += questions[i].text;
+          html += "</option>";
+        }
+
+        document.getElementById("questions").innerHTML = html;
+      }
+
+      function createOptions() {
+        let questionHasOptions = function() {
+          if (question == null) return false;
+          return question.type != 1;
+        };
+
+        let createOptionField = function(i, text) {
+          let field = $("<input type='text' id='option" + i + "'/>");
+          field.on("change", readQuestionEditor);
+          let clazz = "neutral";
+          if (!question.type || question.type == 0)
+            clazz = i == 0 ? "correct" : "incorrect";
+          field.toggleClass(clazz, true);
+          field.val(text);
+          return field;
+        };
+
+        let container = $("#optioncontainer");
+        container.empty();
+
+        if (questionHasOptions()) {
+          let numOptions = 0;
+          if (question.options) numOptions = question.options.length;
+          for (let i = 0; i < numOptions; ++i) {
+            let text = question.options[i];
+            let input = createOptionField(i, text);
+            container.append(input);
+          }
+          container.append(createOptionField(numOptions), "");
+        }
+      }
+
+      function updateUI() {
+        // update editor UI
+        $("#editorcontainer").css(
+          "display",
+          question != null ? "initial" : "none"
+        );
+        if (question != null) {
+          $("#typeselect").val(question.type ? question.type : 0);
+
+          $("#text").val(question.text);
+          for (var i = 0; $("#option" + i)[0]; ++i) {
+            $("#option" + i).val(
+              question.options && question.options[i] ? question.options[i] : ""
+            );
+          }
+
+          createOptions();
+
+          // set up image editing UI
+          $("#questionimage").attr("src", question.image ? question.image : "");
+          $("#imageeditor").css("display", question.image ? "initial" : "none");
+          $("#dragheretext").css(
+            "display",
+            question.image ? "none" : "initial"
+          );
+        }
+      }
+
+      function readQuestionEditor() {
+        question.type = $("#typeselect").val();
+        question.text = $("#text").val();
+
+        if (!question.type || question.type == 0 || question.type == 2) {
+          question.options = [];
+          for (var i = 0; $("#option" + i)[0]; ++i) {
+            var value = $("#option" + i).val();
+            if (value.trim().length > 0) {
+              question.options.push(value);
+            }
+          }
+        } else if (question.type == 1) {
+          delete question.options;
+        }
+
+        listQuestions();
+        updateUI();
+      }
+
+      function onQuestionSelect() {
+        var selected = document.getElementById("questions").value;
+        question = questions[selected];
+        updateUI();
+      }
+
+      function newQuiz() {
+        questions = [];
+        question = null;
+        listQuestions();
+        updateUI();
+      }
+
+      function newQuestion() {
+        question = {
+          text: i18n.t("textofquestion"),
+          options: [
+            i18n.t("correctanswer"),
+            i18n.t("wronganswer") + " 1",
+            i18n.t("wronganswer") + " 2",
+            i18n.t("wronganswer") + " 3"
+          ],
+          type: 0
+        };
+
+        questions[questions.length] = question;
+        listQuestions();
+        updateUI();
+        document.getElementById("questions").value = questions.length - 1;
+      }
+
+      function removeQuestion() {
+        var selected = parseInt(document.getElementById("questions").value);
+        questions.splice(selected, 1);
+        listQuestions();
+        updateUI();
+      }
+
+      function upQuestion() {
+        var selected = parseInt(document.getElementById("questions").value);
+        if (selected < 1) {
+          return;
+        }
+
+        question = questions[selected];
+        questions[selected] = questions[selected - 1];
+        questions[selected - 1] = question;
+
+        listQuestions();
+        updateUI();
+        document.getElementById("questions").value = selected - 1;
+      }
+
+      function downQuestion() {
+        var selected = parseInt(document.getElementById("questions").value);
+        if (selected >= questions.length - 1) {
+          return;
+        }
+
+        question = questions[selected];
+        questions[selected] = questions[selected + 1];
+        questions[selected + 1] = question;
+
+        listQuestions();
+        updateUI();
+        document.getElementById("questions").value = selected + 1;
+      }
+
+      function deleteImage() {
+        delete question.image;
+        updateUI();
+      }
+
+      function loadFile() {
+        var files = document.getElementById("files").files;
+        if (files.length < 1) {
+          return;
+        }
+
+        var reader = new FileReader();
+        // Closure to capture the file information.
+        reader.onload = (function(theFile) {
+          return function(e) {
+            var loadedQuestions = JSON.parse(e.target.result);
+            var append = false;
+            // if current quiz contains questions, ask if to append quiz
+            if (questions.length > 0) {
+              append = confirm(i18n.t("appendquiz"));
+            }
+
+            if (append) {
+              for (var i = 0; i < loadedQuestions.length; ++i) {
+                questions.push(loadedQuestions[i]);
+              }
+            } else {
+              questions = loadedQuestions;
+            }
+
+            listQuestions();
+            console.log(questions);
+          };
+        })(files[0]);
+
+        reader.readAsText(files[0], "UTF-8");
+        updateUI();
+      }
+
+      function saveToFile() {
+        var string = JSON.stringify(questions);
+
+        var link = document.getElementById("savelink");
+        link.href =
+          "data:text/json;charset=utf-8," + encodeURIComponent(string);
+
+        return true;
+      }
+
+      /*
+       * Code for adding image data
+       */
+
+      var MAXWIDTH = 640;
+      var MAXHEIGHT = 480;
+
+      var target = document;
+      target.addEventListener(
+        "dragover",
+        function(e) {
+          e.preventDefault();
+        },
+        true
+      );
+      target.addEventListener(
+        "drop",
+        function(e) {
+          e.preventDefault();
+          var file = e.dataTransfer.files[0];
+          if (!file.type.match(/image.*/)) {
+            // not an image file!
+            return;
+          }
+
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var image = new Image();
+            image.onload = function() {
+              var width2 = image.width;
+              var height2 = image.height;
+              if (width2 > MAXWIDTH) {
+                height2 *= MAXWIDTH / width2;
+                width2 = MAXWIDTH;
+              }
+
+              if (height2 > MAXHEIGHT) {
+                width2 *= MAXHEIGHT / height2;
+                height2 = MAXHEIGHT;
+              }
+
+              var canvas = document.createElement("canvas");
+              canvas.width = image.width;
+              canvas.height = image.height;
+              var ctx = canvas.getContext("2d");
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(image, 0, 0, image.width, image.height);
+
+              resample_hermite(
+                canvas,
+                image.width,
+                image.height,
+                width2,
+                height2
+              );
+
+              if (question.text) {
+                question.image = canvas.toDataURL("image/jpeg", 0.7);
+                updateUI();
+              }
+            };
+            image.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        },
+        true
+      );
+    </script>
+  </body>
 </html>
