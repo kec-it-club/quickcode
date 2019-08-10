@@ -1,0 +1,40 @@
+[
+  {
+    "text": "Pointer is special kind of variable which is used to stored __________ of the variable.",
+    "options": ["Address", "Variable Name", "Value", "Data Type"]
+  },
+  {
+    "text": "Pointer variable is declared using preceding _________ sign.",
+    "options": ["*", "%", "^", "&"]
+  },
+  {
+    "text": "Address stored in the pointer variable is of type __________.",
+    "options": ["Integer", "Character", "Array", "Floating"]
+  },
+  {
+    "text": "Consider the 32 bit compiler. We need to store address of integer variable to integer pointer. What will be the size of integer pointer ?",
+    "options": ["2 Bytes", "10 Bytes", "6 Bytes", "4 Bytes"]
+  },
+  {
+    "text": "In order to fetch the address of the variable we write preceding _________ sign before variable name.",
+    "options": ["Ampersand", "Asteriks", "Percent", "Comma"]
+  },
+  {
+    "text": "A pointer is",
+    "options": [
+      "A variable that stores address of other variable",
+      "A keyword used to create variables",
+      "A variable that stores address of an instruction",
+      "None of these"
+    ]
+  },
+  {
+    "text": "\"&\" is called as ___________ in pointer concept.",
+    "options": [
+      "Address Operator",
+      "Conditional Operator",
+      "None of these",
+      "Logical Operator"
+    ]
+  }
+]
