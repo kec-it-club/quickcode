@@ -1,12 +1,16 @@
 {
-  "name": "QuickCode",
-  "version": "2.0",
-  "description": "System developed to IT Quiz with price bidding over each question",
-  "license": "Apache",
-  "dependencies": {
-    "basic-auth": "~1.0.1",
-    "express": "^4.16.3",
-    "socket.io": "~2.1.1",
-    "yargs": "~3.9.0"
-  }
+   "name": "QuickCode",
+   "version": "0.0.2",
+   "description": "System developed to IT Quiz with price bidding over each question",
+   "license": "Apache",
+   "dependencies": {
+      "basic-auth": "~2.0.1",
+      "express": "^4.17.1",
+      "socket.io": "~3.0.4",
+      "yargs": "~16.2.0"
+   },
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/kec-it-club/quickcode.git"
+   }
 }
